@@ -1,129 +1,165 @@
 #include "main.h"
 
 /**
- * _strdup - duplicates a str in the heap memory.
- * @s: Type char pointer str
- * Return: duplicated str
- */
-char *_strdup(const char *s)
-{
-	char *new;
-	size_t len;
-
-	len = _strlen(s);
-	new = malloc(sizeof(char) * (len + 1));
-	if (new == NULL)
-		return (NULL);
-	_memcpy(new, s, len + 1);
-	return (new);
-}
-
-/**
- * _strlen - Returns the lenght of a string.
- * @s: Type char pointer
- * Return: Always 0.
- */
-int _strlen(const char *s)
-{
-	int len;
-
-	for (len = 0; s[len] != 0; len++)
-	{
-	}
-	return (len);
-}
-
-/**
- * cmp_chars - compare chars of strings
- * @str: input string.
- * @delim: delimiter.
+ * cd_dot - changes to the parent directory
  *
- * Return: 1 if are equals, 0 if not.
+ * @datash: data relevant (environ)
+ *
+ * Return: no return
  */
-int cmp_chars(char str[], const char *delim)
+void cd_dot(data_shell *datash)
 {
-	unsigned int i, j, k;
+	char pwd[PATH_MAX];
+	char *dir, *cp_pwd, *cp_strtok_pwd;
 
-	for (i = 0, k = 0; str[i]; i++)
+	getcwd(pwd, sizeof(pwd));
+	cp_pwd = _strdup(pwd);
+	set_env("OLDPWD", cp_pwd, datash);
+	dir = datash->args[1];
+	if (_strcmp(".", dir) == 0)
 	{
-		for (j = 0; delim[j]; j++)
-		{
-			if (str[i] == delim[j])
-			{
-				k++;
-				break;
-			}
-		}
+		set_env("PWD", cp_pwd, datash);
+		free(cp_pwd);
+		return;
 	}
-	if (i == k)
-		return (1);
-	return (0);
+	if (_strcmp("/", cp_pwd) == 0)
+	{
+		free(cp_pwd);
+		return;
+	}
+	cp_strtok_pwd = cp_pwd;
+	rev_string(cp_strtok_pwd);
+	cp_strtok_pwd = _strtok(cp_strtok_pwd, "/");
+	if (cp_strtok_pwd != NULL)
+	{
+		cp_strtok_pwd = _strtok(NULL, "\0");
+
+		if (cp_strtok_pwd != NULL)
+			rev_string(cp_strtok_pwd);
+	}
+	if (cp_strtok_pwd != NULL)
+	{
+		chdir(cp_strtok_pwd);
+		set_env("PWD", cp_strtok_pwd, datash);
+	}
+	else
+	{
+		chdir("/");
+		set_env("PWD", "/", datash);
+	}
+	datash->status = 0;
+	free(cp_pwd);
 }
 
 /**
- * _strtok - splits a string by some delimiter.
- * @str: input string.
- * @delim: delimiter.
+ * cd_to - changes to a directory given
+ * by the user
  *
- * Return: string splited.
+ * @datash: data relevant (directories)
+ * Return: no return
  */
-char *_strtok(char str[], const char *delim)
+void cd_to(data_shell *datash)
 {
-	static char *splitted, *str_end;
-	char *str_start;
-	unsigned int i, bool;
+	char pwd[PATH_MAX];
+	char *dir, *cp_pwd, *cp_dir;
 
-	if (str != NULL)
-	{
-		if (cmp_chars(str, delim))
-			return (NULL);
-		splitted = str; /*Store first address*/
-		i = _strlen(str);
-		str_end = &str[i]; /*Store last address*/
-	}
-	str_start = splitted;
-	if (str_start == str_end) /*Reaching the end*/
-		return (NULL);
+	getcwd(pwd, sizeof(pwd));
 
-	for (bool = 0; *splitted; splitted++)
+	dir = datash->args[1];
+	if (chdir(dir) == -1)
 	{
-		/*Breaking loop finding the next token*/
-		if (splitted != str_start)
-			if (*splitted && *(splitted - 1) == '\0')
-				break;
-		/*Replacing delimiter for null char*/
-		for (i = 0; delim[i]; i++)
-		{
-			if (*splitted == delim[i])
-			{
-				*splitted = '\0';
-				if (splitted == str_start)
-					str_start++;
-				break;
-			}
-		}
-		if (bool == 0 && *splitted) /*Str != Delim*/
-			bool = 1;
+		get_error(datash, 2);
+		return;
 	}
-	if (bool == 0) /*Str == Delim*/
-		return (NULL);
-	return (str_start);
+
+	cp_pwd = _strdup(pwd);
+	set_env("OLDPWD", cp_pwd, datash);
+
+	cp_dir = _strdup(dir);
+	set_env("PWD", cp_dir, datash);
+
+	free(cp_pwd);
+	free(cp_dir);
+
+	datash->status = 0;
+
+	chdir(dir);
 }
 
 /**
- * _isdigit - defines if string passed is a number
+ * cd_previous - changes to the previous directory
  *
- * @s: input string
- * Return: 1 if string is a number. 0 in other case.
+ * @datash: data relevant (environ)
+ * Return: no return
  */
-int _isdigit(const char *s)
+void cd_previous(data_shell *datash)
 {
-	unsigned int i;
+	char pwd[PATH_MAX];
+	char *p_pwd, *p_oldpwd, *cp_pwd, *cp_oldpwd;
 
-	for (i = 0; s[i]; i++)
+	getcwd(pwd, sizeof(pwd));
+	cp_pwd = _strdup(pwd);
+
+	p_oldpwd = _getenv("OLDPWD", datash->_environ);
+
+	if (p_oldpwd == NULL)
+		cp_oldpwd = cp_pwd;
+	else
+		cp_oldpwd = _strdup(p_oldpwd);
+
+	set_env("OLDPWD", cp_pwd, datash);
+
+	if (chdir(cp_oldpwd) == -1)
+		set_env("PWD", cp_pwd, datash);
+	else
+		set_env("PWD", cp_oldpwd, datash);
+
+	p_pwd = _getenv("PWD", datash->_environ);
+
+	write(STDOUT_FILENO, p_pwd, _strlen(p_pwd));
+	write(STDOUT_FILENO, "\n", 1);
+
+	free(cp_pwd);
+	if (p_oldpwd)
+		free(cp_oldpwd);
+
+	datash->status = 0;
+
+	chdir(p_pwd);
+}
+
+/**
+ * cd_to_home - changes to home directory
+ *
+ * @datash: data relevant (environ)
+ * Return: no return
+ */
+void cd_to_home(data_shell *datash)
+{
+	char *p_pwd, *home;
+	char pwd[PATH_MAX];
+
+	getcwd(pwd, sizeof(pwd));
+	p_pwd = _strdup(pwd);
+
+	home = _getenv("HOME", datash->_environ);
+
+	if (home == NULL)
 	{
-		if (s[i] < 48 || s[i] > 57)
-			return (0);
+		set_env("OLDPWD", p_pwd, datash);
+		free(p_pwd);
+		return;
 	}
-	return (1);
+
+	if (chdir(home) == -1)
+	{
+		get_error(datash, 2);
+		free(p_pwd);
+		return;
+	}
+
+	set_env("OLDPWD", p_pwd, datash);
+	set_env("PWD", home, datash);
+	free(p_pwd);
+	datash->status = 0;
 }
