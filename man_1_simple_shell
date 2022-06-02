@@ -76,7 +76,6 @@ The following builtin commands are supported:
 .B unsetenv [Variable]
 
 - Removes an environmental variable.
-
 .B exit [Status]
 
 - Exit the shell
